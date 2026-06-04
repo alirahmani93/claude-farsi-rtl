@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Claude.ai Farsi RTL",
-  "version": "1.1.0",
-  "description": "Per-block Farsi RTL + font picker (Farsi & English) + local prompt library for claude.ai. No network calls.",
+  "version": "1.2.0",
+  "description": "Per-block Farsi RTL + font picker (Farsi & English) + local prompt library for claude.ai and chatgpt.com. No network calls.",
   "permissions": ["storage"],
-  "host_permissions": ["https://claude.ai/*"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Claude.ai Farsi RTL — settings",
@@ -23,7 +27,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://claude.ai/*"],
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle",
@@ -33,7 +41,11 @@
   "web_accessible_resources": [
     {
       "resources": ["fonts/Vazirmatn-Regular.woff2", "fonts/Vazirmatn-Bold.woff2"],
-      "matches": ["https://claude.ai/*"]
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ]
     }
   ]
 }

@@ -123,18 +123,24 @@
     return Array.isArray(prompts) ? prompts : [];
   }
 
-  async function findClaudeTab() {
-    const tabs = await chrome.tabs.query({ url: 'https://claude.ai/*' });
+  const SUPPORTED_URLS = [
+    'https://claude.ai/*',
+    'https://chatgpt.com/*',
+    'https://chat.openai.com/*',
+  ];
+
+  async function findChatTab() {
+    const tabs = await chrome.tabs.query({ url: SUPPORTED_URLS });
     if (!tabs.length) return null;
-    // Prefer the active one in the current window, otherwise any claude tab.
+    // Prefer the active one in the current window, otherwise any supported tab.
     const current = tabs.find(t => t.active) || tabs[0];
     return current;
   }
 
   async function insertPrompt(body, position) {
-    const tab = await findClaudeTab();
+    const tab = await findChatTab();
     if (!tab) {
-      flashStatus('Open a claude.ai tab first.', true);
+      flashStatus('Open a claude.ai or chatgpt.com tab first.', true);
       return;
     }
     try {
@@ -149,7 +155,7 @@
         flashStatus((res && res.error) || 'Insert failed.', true);
       }
     } catch (e) {
-      flashStatus('Reload the claude.ai tab and try again.', true);
+      flashStatus('Reload the chat tab and try again.', true);
     }
   }
 
