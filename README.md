@@ -5,8 +5,11 @@ A tiny Chrome (MV3) extension for [claude.ai](https://claude.ai) and
 
 1. **Per-block Farsi RTL + Vazirmatn font.** English/LTR blocks and code stay untouched.
 2. **Font picker** for Farsi and English text (popup).
-3. **Local prompt library** — save reusable prompts and one-click insert them
-   into the chat composer. Stored locally, no network calls.
+3. **Local prompt library** — save, edit, and one-click insert reusable
+   prompts into the chat composer. Stored locally, no network calls.
+4. **Settings tab** — master on/off switch plus per-feature toggles
+   (RTL, fonts, prompt insertion) and a configurable prompt-card preview
+   length.
 
 No build step, no dependencies, no remote requests. The font is bundled.
 The extension still carries its original "Claude.ai Farsi RTL" name even
@@ -71,8 +74,13 @@ Click the extension icon → **Prompts** tab.
   - **↥ Top** — insert at the very beginning of the composer.
   - **⌖ Here** — insert at the caret position you last had inside the composer.
   - **↧ End** — insert at the very end of the composer.
-- The **×** button deletes a prompt (no confirm — list re-renders immediately
-  via the `chrome.storage.onChanged` listener).
+- Each card also has **✎** (inline edit — swaps the card into a title +
+  body form; Save validates uniqueness against other prompts, Cancel
+  reverts) and **×** (delete, no confirm — list re-renders immediately
+  via the `chrome.storage.onChanged` listener) on one row.
+- The body preview on each card is truncated to **N** characters (default
+  100, configurable in Settings as "Prompt preview length", clamped to
+  20–2000). The full body is always inserted into the composer.
 
 A claude.ai or chatgpt.com tab must be open for insertion to work — the popup
 finds the active supported tab (or any supported tab if none are active) and
@@ -90,12 +98,34 @@ Prompts are stored under `chrome.storage.local` (local-only, no network) and
 survive Chrome restarts. They are *per-profile*, not per-conversation, and
 shared across both supported sites.
 
+### 4. Settings tab
+
+Click the extension icon → **Settings** tab.
+
+- **Extension enabled** — master switch. Off makes the extension fully
+  inert: the MutationObserver disconnects, any `data-farsi-rtl` marks are
+  stripped, font CSS variables are removed, and prompt-insert messages get
+  a "disabled" response.
+- **Farsi RTL** — toggle just the RTL detector. When off, blocks revert to
+  the host site's typography.
+- **Font overrides** — toggle just the font CSS variables. When off, both
+  the Farsi and English font picks stop applying (selections in the Fonts
+  tab are preserved for when you re-enable).
+- **Prompt insertion** — toggle just the popup → composer insert path.
+  When off, prompt cards are still visible/editable but the Top/Here/End
+  buttons return a "disabled" status. The library itself stays intact.
+- **Prompt preview length** — number of characters to show per prompt
+  card. Range 20–2000, default 100. The full body is still inserted.
+
+When master is off, the four sub-controls go visually disabled but keep
+their stored values so flipping master back restores your prior layout.
+
 ## Files
 
 - `manifest.json` — MV3, host permissions for `claude.ai`, `chatgpt.com`, and `chat.openai.com`; `storage` permission for settings/prompts.
 - `content.js` — Farsi/English block detection, MutationObserver, font CSS-variable wiring, caret tracking + insert message handler. Site-agnostic — relies on generic block tags and `contenteditable`.
 - `styles.css` — `@font-face` for bundled Vazirmatn + RTL styling.
-- `popup.html` / `popup.css` / `popup.js` — tabbed popup (Prompts + Fonts). Prompts tab handles CRUD and sends insert commands to whichever supported chat tab is active.
+- `popup.html` / `popup.css` / `popup.js` — tabbed popup (Prompts + Fonts + Settings). Prompts tab handles add/edit/delete and sends insert commands; Settings tab holds feature toggles and the preview-length input.
 - `fonts/Vazirmatn-{Regular,Bold}.woff2` — bundled webfonts (Vazirmatn v33.003 by
   rastikerdar, [SIL Open Font License](https://github.com/rastikerdar/vazirmatn/blob/master/OFL.txt)).
 - `icons/` — extension icons.

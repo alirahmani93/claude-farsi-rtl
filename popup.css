@@ -64,26 +64,53 @@ h1 {
 
 /* ── Fonts ──────────────────────────────────────────────────────────── */
 
-.row { padding: 6px 0 10px; }
-.row > label {
-  display: block;
+.setting-card {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.setting-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.setting-title {
   font-size: 12px;
   font-weight: 600;
-  margin-bottom: 6px;
-  color: #444;
+  color: #333;
 }
-.row select {
+.setting-hint {
+  font-size: 11px;
+  color: #8a8a8a;
+}
+.setting-card select {
   width: 100%;
   padding: 6px 8px;
   font-size: 13px;
   border: 1px solid #d0d0d0;
   border-radius: 6px;
-  background: #fff;
+  background: #fafafa;
+}
+.number-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.number-row input[type="number"] {
+  width: 80px;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fafafa;
 }
 .preview {
   margin: 8px 0 0;
   padding: 8px 10px;
-  background: #fff;
+  background: #fafafa;
   border: 1px solid #ececec;
   border-radius: 6px;
   font-size: 14px;
@@ -196,23 +223,46 @@ button.small { padding: 4px 10px; font-size: 11px; }
   font-size: 11px;
   color: #6b6b6b;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
-.p-del {
+.p-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.p-edit, .p-del {
   background: transparent;
   border: none;
   color: #999;
   cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
+  font-size: 14px;
+  padding: 2px 6px;
   border-radius: 4px;
   line-height: 1;
-  flex: 0 0 auto;
 }
+.p-edit:hover { background: rgba(217, 119, 87, 0.18); color: #d97757; }
+.p-del { font-size: 16px; }
 .p-del:hover { background: rgba(220, 60, 60, 0.18); color: #e04040; }
+
+/* Inline edit form rendered in place of the prompt row */
+.p-edit-form { display: flex; flex-direction: column; gap: 6px; }
+.p-edit-form input,
+.p-edit-form textarea {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fafafa;
+  font-family: inherit;
+  resize: vertical;
+}
+.p-edit-form textarea { min-height: 70px; max-height: 160px; }
+.p-edit-form .form-row { display: flex; gap: 6px; }
+.p-edit-form .form-row button { flex: 1; }
 
 .p-actions {
   display: flex;
@@ -249,6 +299,79 @@ button.small { padding: 4px 10px; font-size: 11px; }
 }
 .prompts-empty[hidden] { display: none; }
 
+/* ── Settings (toggles) ─────────────────────────────────────────────── */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.toggle-row.master {
+  background: #fff7f3;
+  border-color: #f1c4af;
+}
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.toggle-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.toggle-hint {
+  font-size: 11px;
+  color: #8a8a8a;
+}
+.toggle-group {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed #e7e7e7;
+}
+.toggle-row.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom switch (square checkbox repainted as a pill). */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: #cfcfcf;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex: 0 0 auto;
+  margin: 0;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.switch:checked { background: #d97757; }
+.switch:checked::after { transform: translateX(14px); }
+.switch:disabled { cursor: not-allowed; }
+
 /* ── Footer ─────────────────────────────────────────────────────────── */
 
 footer {
@@ -273,7 +396,12 @@ footer {
   .tab:hover { color: #ddd; }
   .panel-head .hint { color: #888; }
   .row > label { color: #c8c8c8; }
-  .row select, .preview { background: #262626; border-color: #383838; color: #ececec; }
+  .setting-card { background: #262626; border-color: #383838; }
+  .setting-title { color: #ececec; }
+  .setting-hint { color: #999; }
+  .setting-card select, .preview { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
+  .number-row input[type="number"] { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
+  .p-edit-form input, .p-edit-form textarea { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
   #add-form, .prompts-list li { background: #262626; border-color: #383838; }
   #add-form input, #add-form textarea { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
   .p-body { color: #9a9a9a; }
@@ -282,6 +410,13 @@ footer {
   button.ghost { background: #262626; border-color: #3a3a3a; color: #ececec; }
   button.ghost:hover { background: #303030; }
   footer { background: #1a1a1a; border-top-color: #2e2e2e; }
+  .toggle-row { background: #262626; border-color: #383838; }
+  .toggle-row.master { background: #2a1f1a; border-color: #6b3a26; }
+  .toggle-title { color: #ececec; }
+  .toggle-hint { color: #999; }
+  .toggle-group { border-top-color: #2e2e2e; }
+  .switch { background: #404040; }
+  .switch:checked { background: #d97757; }
 
   .prompts-list { scrollbar-color: #404040 transparent; }
   .prompts-list::-webkit-scrollbar-thumb { background: #404040; background-clip: padding-box; }

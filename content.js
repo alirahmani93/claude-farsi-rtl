@@ -135,7 +135,23 @@
     }
   });
 
-  function start() {
+  // ───── Feature toggles ────────────────────────────────────────────────
+  //
+  // Stored in chrome.storage.local. All default to true. `enabled` is the
+  // master; when it's false the per-feature flags are ignored and the
+  // extension is fully inert (no observer, no font vars, ignores insert
+  // messages from the popup).
+  const settings = {
+    enabled: true, rtlEnabled: true, fontsEnabled: true, promptsEnabled: true,
+  };
+  const rtlOn  = () => settings.enabled && settings.rtlEnabled;
+  const fontOn = () => settings.enabled && settings.fontsEnabled;
+  const promptsOn = () => settings.enabled && settings.promptsEnabled;
+
+  let rtlRunning = false;
+  function startRtl() {
+    if (rtlRunning) return;
+    rtlRunning = true;
     scanSubtree(document.body);
     observer.observe(document.body, {
       childList: true,
@@ -143,15 +159,32 @@
       characterData: true,
     });
   }
+  function stopRtl() {
+    if (!rtlRunning) return;
+    rtlRunning = false;
+    observer.disconnect();
+    // Strip any marks we placed so the page reverts to host typography.
+    const tagged = document.querySelectorAll('[' + MARK + ']');
+    for (const el of tagged) {
+      el.removeAttribute(MARK);
+      el.removeAttribute('dir');
+      el.removeAttribute('lang');
+    }
+  }
+
+  function bootRtl() {
+    if (rtlOn()) startRtl(); else stopRtl();
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, { once: true });
+    document.addEventListener('DOMContentLoaded', bootRtl, { once: true });
   } else {
-    start();
+    bootRtl();
   }
 
   // Composer (contenteditable). Re-evaluate per paragraph on input.
   document.addEventListener('input', (e) => {
+    if (!rtlOn()) return;
     const t = e.target;
     if (!(t instanceof Element) || !t.isContentEditable) return;
     if (BLOCK_SET.has(t.tagName)) schedule(t);
@@ -174,14 +207,46 @@
     document.documentElement.style.setProperty(
       '--english-font', englishFont || DEFAULT_ENGLISH_FONT);
   }
+  function clearFonts() {
+    document.documentElement.style.removeProperty('--farsi-font');
+    document.documentElement.style.removeProperty('--english-font');
+  }
+  function refreshFonts() {
+    if (!fontOn()) { clearFonts(); return; }
+    chrome.storage.local.get(['farsiFont', 'englishFont']).then(applyFonts);
+  }
 
-  chrome.storage.local.get(['farsiFont', 'englishFont']).then(applyFonts);
+  refreshFonts();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.farsiFont || changes.englishFont) {
-      chrome.storage.local.get(['farsiFont', 'englishFont']).then(applyFonts);
+    if (changes.farsiFont || changes.englishFont) refreshFonts();
+  });
+
+  // ───── Toggle wiring ──────────────────────────────────────────────────
+
+  const TOGGLE_KEYS = ['enabled', 'rtlEnabled', 'fontsEnabled', 'promptsEnabled'];
+
+  function applyToggles() {
+    bootRtl();
+    refreshFonts();
+    // promptsOn() is read on each insert message — nothing to apply here.
+  }
+
+  chrome.storage.local.get(TOGGLE_KEYS).then((s) => {
+    for (const k of TOGGLE_KEYS) {
+      if (typeof s[k] === 'boolean') settings[k] = s[k];
     }
+    applyToggles();
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    let touched = false;
+    for (const k of TOGGLE_KEYS) {
+      if (changes[k]) { settings[k] = !!changes[k].newValue; touched = true; }
+    }
+    if (touched) applyToggles();
   });
 
   // ───── Prompt insertion (driven by the popup) ─────────────────────────
@@ -285,6 +350,10 @@
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || msg.type !== 'cfr-insert') return;
+    if (!promptsOn()) {
+      sendResponse({ ok: false, error: 'Prompt insertion is disabled in Settings.' });
+      return; // synchronous response
+    }
     insertPrompt(String(msg.body || ''), msg.position || 'end').then(sendResponse);
     return true; // keep the message channel open for the async response
   });

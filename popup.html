@@ -11,6 +11,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab active" data-tab="prompts" role="tab" aria-selected="true">Prompts</button>
       <button type="button" class="tab" data-tab="fonts" role="tab" aria-selected="false">Fonts</button>
+      <button type="button" class="tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
     </nav>
   </header>
 
@@ -36,20 +37,82 @@
 
   <!-- ── Fonts panel ──────────────────────────────────────────────────── -->
   <section id="panel-fonts" class="panel" role="tabpanel" hidden>
-    <div class="row">
-      <label for="farsi-font">Farsi font</label>
+    <div class="setting-card">
+      <div class="setting-head">
+        <label class="setting-title" for="farsi-font">Farsi font</label>
+        <span class="setting-hint">Applied to Persian (RTL) paragraphs.</span>
+      </div>
       <select id="farsi-font"></select>
       <p class="preview" id="farsi-preview" lang="fa" dir="rtl">سلام دنیا — این یک نمونه‌ی نوشتاری است.</p>
     </div>
 
-    <div class="row">
-      <label for="english-font">English font</label>
+    <div class="setting-card">
+      <div class="setting-head">
+        <label class="setting-title" for="english-font">English font</label>
+        <span class="setting-hint">Applied to English text inside Farsi blocks.</span>
+      </div>
       <select id="english-font"></select>
       <p class="preview" id="english-preview">The quick brown fox jumps over the lazy dog.</p>
     </div>
 
-    <div class="row reset-row">
+    <div class="reset-row">
       <button id="reset" type="button" class="ghost">Reset fonts</button>
+    </div>
+  </section>
+
+  <!-- ── Settings panel ───────────────────────────────────────────────── -->
+  <section id="panel-settings" class="panel" role="tabpanel" hidden>
+    <label class="toggle-row master" for="t-enabled">
+      <span class="toggle-text">
+        <span class="toggle-title">Extension enabled</span>
+        <span class="toggle-hint">Master switch — turns everything off.</span>
+      </span>
+      <input type="checkbox" id="t-enabled" class="switch" checked>
+    </label>
+
+    <div class="toggle-group">
+      <label class="toggle-row" for="t-rtl">
+        <span class="toggle-text">
+          <span class="toggle-title">Farsi RTL</span>
+          <span class="toggle-hint">Auto-flip Persian paragraphs to right-to-left.</span>
+        </span>
+        <input type="checkbox" id="t-rtl" class="switch" checked>
+      </label>
+
+      <label class="toggle-row" for="t-fonts">
+        <span class="toggle-text">
+          <span class="toggle-title">Font overrides</span>
+          <span class="toggle-hint">Apply selected Farsi/English fonts.</span>
+        </span>
+        <input type="checkbox" id="t-fonts" class="switch" checked>
+      </label>
+
+      <label class="toggle-row" for="t-prompts">
+        <span class="toggle-text">
+          <span class="toggle-title">Prompt insertion</span>
+          <span class="toggle-hint">Allow the popup to insert prompts into the composer.</span>
+        </span>
+        <input type="checkbox" id="t-prompts" class="switch" checked>
+      </label>
+
+      <label class="toggle-row" for="t-sync-prompts">
+        <span class="toggle-text">
+          <span class="toggle-title">Sync prompts across devices</span>
+          <span class="toggle-hint">When on, prompts are saved to your Chrome account and follow you across browsers / laptops. When off, they stay on this device.</span>
+        </span>
+        <input type="checkbox" id="t-sync-prompts" class="switch" checked>
+      </label>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-head">
+        <label class="setting-title" for="t-preview-chars">Prompt preview length</label>
+        <span class="setting-hint">How many characters of the body to show on each prompt card.</span>
+      </div>
+      <div class="number-row">
+        <input type="number" id="t-preview-chars" min="20" max="2000" step="10" value="100">
+        <span class="setting-hint">characters</span>
+      </div>
     </div>
   </section>
 
