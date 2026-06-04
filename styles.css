@@ -34,3 +34,11 @@
   unicode-bidi: embed;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* English-dominant block inside a Farsi-marked container: cancel inherited RTL. */
+[data-farsi-rtl="0"] {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+  font-family: inherit;
+}

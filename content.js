@@ -54,19 +54,55 @@
     return persian.length / letters.length > THRESHOLD;
   }
 
+  function isEnglish(text) {
+    if (!text) return false;
+    const letters = text.match(LETTER_RE);
+    if (!letters || letters.length < 3) return false;
+    const persian = text.match(PERSIAN_RE);
+    // Treat as English-dominant when Persian letters are essentially absent.
+    return !persian || persian.length / letters.length < 0.05;
+  }
+
+  function hasFarsiAncestor(el) {
+    let p = el.parentElement;
+    while (p) {
+      if (p.getAttribute && p.getAttribute(MARK) === '1') return true;
+      p = p.parentElement;
+    }
+    return false;
+  }
+
   function evaluate(el) {
     if (!el.isConnected || el.nodeType !== 1) return;
     if (!BLOCK_SET.has(el.tagName)) return;
     if (isUnderSkipped(el)) return;
 
-    const farsi = isFarsi(sampleText(el));
-    const marked = el.getAttribute(MARK) === '1';
+    const text = sampleText(el);
+    const farsi = isFarsi(text);
+    const current = el.getAttribute(MARK);
 
-    if (farsi && !marked) {
-      el.setAttribute(MARK, '1');
-      el.setAttribute('dir', 'rtl');
-      el.setAttribute('lang', 'fa');
-    } else if (!farsi && marked) {
+    if (farsi) {
+      if (current !== '1') {
+        el.setAttribute(MARK, '1');
+        el.setAttribute('dir', 'rtl');
+        el.setAttribute('lang', 'fa');
+      }
+      return;
+    }
+
+    // Not Farsi. If this block is English-dominant AND lives inside a
+    // Farsi-marked ancestor, it would otherwise inherit dir=rtl / text-align=right
+    // (both are inherited CSS properties) and read backwards. Force LTR explicitly.
+    if (isEnglish(text) && hasFarsiAncestor(el)) {
+      if (current !== '0') {
+        el.setAttribute(MARK, '0');
+        el.setAttribute('dir', 'ltr');
+        el.setAttribute('lang', 'en');
+      }
+      return;
+    }
+
+    if (current !== null) {
       el.removeAttribute(MARK);
       el.removeAttribute('dir');
       el.removeAttribute('lang');
