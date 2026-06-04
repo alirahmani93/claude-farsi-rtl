@@ -7,6 +7,15 @@ the extension follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Added
+- **`LICENSE`** — MIT license for the extension code, with a NOTICE
+  clarifying that the bundled Vazirmatn webfont is OFL-1.1 and not
+  covered by the MIT grant.
+- **`fonts/OFL.txt`** — upstream Vazirmatn OFL-1.1 license text bundled
+  with the font binaries, as required when redistributing OFL fonts.
+- **`CONTRIBUTING.md`** — setup, the project's intentional constraints
+  (no build, no deps, no network calls, no new permissions, three
+  URL lists kept in sync, etc.), the manual test flow, and PR / issue
+  conventions.
 - **“Sync prompts across devices” toggle** in the Settings tab
   (`syncPromptsEnabled`, default on). When on, prompts live in
   `chrome.storage.sync` and follow the user across browsers / laptops.
