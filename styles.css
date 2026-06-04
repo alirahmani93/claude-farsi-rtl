@@ -1,0 +1,34 @@
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/Vazirmatn-Regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/Vazirmatn-Bold.woff2) format('woff2');
+}
+
+/* Apply Farsi font + RTL niceties only to blocks we explicitly tagged. */
+[data-farsi-rtl="1"] {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Vazirmatn', 'Tahoma', 'Iranian Sans', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.85;
+  /* Mixed-content tweaks: keep numbers/code inline-readable */
+  unicode-bidi: plaintext;
+}
+
+/* Inline code inside a Farsi block stays LTR and uses mono font. */
+[data-farsi-rtl="1"] code,
+[data-farsi-rtl="1"] kbd,
+[data-farsi-rtl="1"] samp {
+  direction: ltr;
+  unicode-bidi: embed;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

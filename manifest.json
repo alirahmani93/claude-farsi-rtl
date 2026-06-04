@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Claude.ai Farsi RTL",
+  "version": "1.0.0",
+  "description": "Per-block Farsi RTL + Vazirmatn font for claude.ai. Leaves English chrome and code blocks alone.",
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/Vazirmatn-Regular.woff2", "fonts/Vazirmatn-Bold.woff2"],
+      "matches": ["https://claude.ai/*"]
+    }
+  ]
+}
