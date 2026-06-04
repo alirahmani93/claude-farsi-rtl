@@ -20,8 +20,10 @@
   text-align: right;
   font-family: 'Vazirmatn', 'Tahoma', 'Iranian Sans', 'Segoe UI', system-ui, sans-serif;
   line-height: 1.85;
-  /* Mixed-content tweaks: keep numbers/code inline-readable */
-  unicode-bidi: plaintext;
+  /* Keep base direction RTL even when a paragraph starts with English/digits.
+     `plaintext` would let the first strong char flip the paragraph to LTR and
+     reorder the Persian segments around English words. */
+  unicode-bidi: isolate;
 }
 
 /* Inline code inside a Farsi block stays LTR and uses mono font. */
