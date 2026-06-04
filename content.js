@@ -27,7 +27,6 @@
   }
 
   function sampleText(el) {
-    // Walk text nodes, skipping descendants under PRE/CODE/etc. Stop early.
     let out = '';
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -59,7 +58,6 @@
     const letters = text.match(LETTER_RE);
     if (!letters || letters.length < 3) return false;
     const persian = text.match(PERSIAN_RE);
-    // Treat as English-dominant when Persian letters are essentially absent.
     return !persian || persian.length / letters.length < 0.05;
   }
 
@@ -90,9 +88,6 @@
       return;
     }
 
-    // Not Farsi. If this block is English-dominant AND lives inside a
-    // Farsi-marked ancestor, it would otherwise inherit dir=rtl / text-align=right
-    // (both are inherited CSS properties) and read backwards. Force LTR explicitly.
     if (isEnglish(text) && hasFarsiAncestor(el)) {
       if (current !== '0') {
         el.setAttribute(MARK, '0');
@@ -126,7 +121,6 @@
     for (let i = 0; i < blocks.length; i++) schedule(blocks[i]);
   }
 
-  // Initial pass + observe streaming/added content.
   const observer = new MutationObserver((muts) => {
     for (const m of muts) {
       if (m.type === 'childList') {
@@ -134,7 +128,6 @@
           if (node.nodeType === 1) scanSubtree(node);
         }
       } else if (m.type === 'characterData') {
-        // Walk up to nearest block element and re-evaluate it.
         let p = m.target.parentElement;
         while (p && !BLOCK_SET.has(p.tagName)) p = p.parentElement;
         if (p) schedule(p);
@@ -165,4 +158,134 @@
     const blocks = t.querySelectorAll(BLOCK_SELECTOR);
     for (let i = 0; i < blocks.length; i++) schedule(blocks[i]);
   }, true);
+
+  // ───── Font preferences ───────────────────────────────────────────────
+  //
+  // Popup writes farsiFont / englishFont. Mirror to documentElement as CSS
+  // custom properties so styles.css picks them up without a sheet rewrite.
+
+  const DEFAULT_FARSI_FONT =
+    "'Vazirmatn', 'Tahoma', 'Iranian Sans', 'Segoe UI', system-ui, sans-serif";
+  const DEFAULT_ENGLISH_FONT = "inherit";
+
+  function applyFonts({ farsiFont, englishFont }) {
+    document.documentElement.style.setProperty(
+      '--farsi-font', farsiFont || DEFAULT_FARSI_FONT);
+    document.documentElement.style.setProperty(
+      '--english-font', englishFont || DEFAULT_ENGLISH_FONT);
+  }
+
+  chrome.storage.local.get(['farsiFont', 'englishFont']).then(applyFonts);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.farsiFont || changes.englishFont) {
+      chrome.storage.local.get(['farsiFont', 'englishFont']).then(applyFonts);
+    }
+  });
+
+  // ───── Prompt insertion (driven by the popup) ─────────────────────────
+  //
+  // The popup sends {type: 'cfr-insert', body, position} via chrome.tabs.
+  // Position is one of:
+  //   - 'top'    → insert at the very beginning of the composer
+  //   - 'end'    → insert at the very end of the composer
+  //   - 'cursor' → insert at the most recent caret position inside the
+  //                composer (we keep tracking it since opening the popup
+  //                steals focus and clears the live selection).
+
+  let lastEditor = null;
+  let lastRange = null;
+
+  document.addEventListener('selectionchange', () => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    let node = range.startContainer;
+    if (node.nodeType !== 1) node = node.parentNode;
+    if (!node) return;
+    for (let p = node; p; p = p.parentElement) {
+      if (p.isContentEditable) {
+        lastEditor = p;
+        lastRange = range.cloneRange();
+        return;
+      }
+    }
+  });
+
+  function findComposer() {
+    if (lastEditor && lastEditor.isConnected) return lastEditor;
+    const candidates = document.querySelectorAll(
+      '[contenteditable="true"], div[role="textbox"]');
+    let best = null, bestY = -Infinity;
+    for (const el of candidates) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > bestY && r.width > 100) { best = el; bestY = r.bottom; }
+    }
+    return best;
+  }
+
+  function placeCaret(editor, position) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    if (position === 'cursor' && lastRange && editor.contains(lastRange.startContainer)) {
+      sel.addRange(lastRange);
+      return;
+    }
+    const r = document.createRange();
+    r.selectNodeContents(editor);
+    r.collapse(position === 'top'); // top → start; end (default) → end
+    sel.addRange(r);
+  }
+
+  function tryInsert(editor, text) {
+    let ok = false;
+    try {
+      ok = document.execCommand('insertText', false, text);
+    } catch (_) { /* ignored */ }
+    if (ok) return true;
+    try {
+      const ev = new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: text,
+        bubbles: true,
+        cancelable: true,
+      });
+      editor.dispatchEvent(ev);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function copyToClipboard(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (_) { return false; }
+  }
+
+  async function insertPrompt(text, position) {
+    const editor = findComposer();
+    if (!editor) {
+      const copied = await copyToClipboard(text);
+      return { ok: false, error: copied
+        ? 'Composer not found — copied to clipboard.'
+        : 'Composer not found.' };
+    }
+    editor.focus();
+    placeCaret(editor, position);
+    const inserted = tryInsert(editor, text);
+    if (!inserted) {
+      const copied = await copyToClipboard(text);
+      return { ok: false, error: copied
+        ? 'Could not insert — copied to clipboard.'
+        : 'Insert failed.' };
+    }
+    return { ok: true };
+  }
+
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (!msg || msg.type !== 'cfr-insert') return;
+    insertPrompt(String(msg.body || ''), msg.position || 'end').then(sendResponse);
+    return true; // keep the message channel open for the async response
+  });
 })();

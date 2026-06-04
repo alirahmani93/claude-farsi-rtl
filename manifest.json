@@ -1,8 +1,26 @@
 {
   "manifest_version": 3,
   "name": "Claude.ai Farsi RTL",
-  "version": "1.0.0",
-  "description": "Per-block Farsi RTL + Vazirmatn font for claude.ai. Leaves English chrome and code blocks alone.",
+  "version": "1.1.0",
+  "description": "Per-block Farsi RTL + font picker (Farsi & English) + local prompt library for claude.ai. No network calls.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://claude.ai/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Claude.ai Farsi RTL — settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "content_scripts": [
     {
       "matches": ["https://claude.ai/*"],

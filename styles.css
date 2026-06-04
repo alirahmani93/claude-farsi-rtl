@@ -14,11 +14,18 @@
   src: url(chrome-extension://__MSG_@@extension_id__/fonts/Vazirmatn-Bold.woff2) format('woff2');
 }
 
+/* Font stacks are CSS variables so the popup can swap them live by writing
+   --farsi-font / --english-font on the documentElement. */
+:root {
+  --farsi-font: 'Vazirmatn', 'Tahoma', 'Iranian Sans', 'Segoe UI', system-ui, sans-serif;
+  --english-font: inherit;
+}
+
 /* Apply Farsi font + RTL niceties only to blocks we explicitly tagged. */
 [data-farsi-rtl="1"] {
   direction: rtl;
   text-align: right;
-  font-family: 'Vazirmatn', 'Tahoma', 'Iranian Sans', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--farsi-font);
   line-height: 1.85;
   /* Keep base direction RTL even when a paragraph starts with English/digits.
      `plaintext` would let the first strong char flip the paragraph to LTR and
@@ -40,5 +47,5 @@
   direction: ltr;
   text-align: left;
   unicode-bidi: isolate;
-  font-family: inherit;
+  font-family: var(--english-font);
 }

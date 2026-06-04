@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Claude.ai Farsi RTL — settings</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Claude.ai Farsi RTL</h1>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="prompts" role="tab" aria-selected="true">Prompts</button>
+      <button type="button" class="tab" data-tab="fonts" role="tab" aria-selected="false">Fonts</button>
+    </nav>
+  </header>
+
+  <!-- ── Prompts panel ────────────────────────────────────────────────── -->
+  <section id="panel-prompts" class="panel active" role="tabpanel">
+    <div class="panel-head">
+      <span class="hint">Open a claude.ai tab to insert.</span>
+      <button type="button" id="add-toggle" class="primary small">+ Add</button>
+    </div>
+
+    <div id="add-form" hidden>
+      <input type="text" id="p-title" placeholder="Title (e.g. Code review)" maxlength="100">
+      <textarea id="p-body" placeholder="Prompt text…"></textarea>
+      <div class="form-row">
+        <button type="button" id="p-cancel" class="ghost">Cancel</button>
+        <button type="button" id="p-save" class="primary">Save</button>
+      </div>
+    </div>
+
+    <ul id="prompts-list" class="prompts-list"></ul>
+    <p id="prompts-empty" class="prompts-empty">No saved prompts yet. Click <strong>+ Add</strong> to create one.</p>
+  </section>
+
+  <!-- ── Fonts panel ──────────────────────────────────────────────────── -->
+  <section id="panel-fonts" class="panel" role="tabpanel" hidden>
+    <div class="row">
+      <label for="farsi-font">Farsi font</label>
+      <select id="farsi-font"></select>
+      <p class="preview" id="farsi-preview" lang="fa" dir="rtl">سلام دنیا — این یک نمونه‌ی نوشتاری است.</p>
+    </div>
+
+    <div class="row">
+      <label for="english-font">English font</label>
+      <select id="english-font"></select>
+      <p class="preview" id="english-preview">The quick brown fox jumps over the lazy dog.</p>
+    </div>
+
+    <div class="row reset-row">
+      <button id="reset" type="button" class="ghost">Reset fonts</button>
+    </div>
+  </section>
+
+  <footer>
+    <span id="status" class="status"></span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
