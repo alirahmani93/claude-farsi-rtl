@@ -26,6 +26,19 @@ To update after editing files: hit the reload icon for the extension on
 `chrome://extensions`, then refresh the chat tab.
 
 ## Features
+Prompt Storage:
+
+<img width="355" height="242" alt="image" src="https://github.com/user-attachments/assets/ced6f49a-8875-4b3a-b2ed-98d01813a950" />
+
+
+Font:
+
+<img width="360" height="445" alt="image" src="https://github.com/user-attachments/assets/d8285861-3c9b-4a42-a770-c0357feb7880" />
+
+
+Settings:
+
+<img width="360" height="559" alt="image" src="https://github.com/user-attachments/assets/49b0422d-f540-4788-aac7-d798c388716d" />
 
 ### 1. Per-block Farsi RTL
 
