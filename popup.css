@@ -61,6 +61,7 @@ h1 {
   margin-bottom: 8px;
 }
 .panel-head .hint { font-size: 11px; color: #888; }
+.panel-head-actions { display: flex; gap: 4px; flex: 0 0 auto; }
 
 /* ── Fonts ──────────────────────────────────────────────────────────── */
 
@@ -134,6 +135,44 @@ h1 {
 /* The `hidden` HTML attribute is `display: none` by default, but the
    `display: flex` above wins. Restore the expected collapse. */
 #add-form[hidden] { display: none; }
+
+/* Import form mirrors the add form — same shape, just a single textarea
+   instead of title + body. Native file pickers close the popup in
+   Chrome MV3 (focus loss → popup dismiss), so importing happens via
+   paste, not a file dialog. */
+#import-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+}
+#import-form[hidden] { display: none; }
+#import-form textarea {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  resize: vertical;
+  min-height: 90px;
+  max-height: 200px;
+  scrollbar-width: thin;
+  scrollbar-color: #c9c9c9 transparent;
+}
+#import-form textarea::-webkit-scrollbar { width: 8px; }
+#import-form textarea::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 #add-form input,
 #add-form textarea {
   width: 100%;
@@ -402,8 +441,9 @@ footer {
   .setting-card select, .preview { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
   .number-row input[type="number"] { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
   .p-edit-form input, .p-edit-form textarea { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
-  #add-form, .prompts-list li { background: #262626; border-color: #383838; }
+  #add-form, #import-form, .prompts-list li { background: #262626; border-color: #383838; }
   #add-form input, #add-form textarea { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
+  #import-form textarea { background: #1d1d1d; border-color: #3a3a3a; color: #ececec; }
   .p-body { color: #9a9a9a; }
   .p-actions button { background: #2a1f1a; color: #d97757; border-color: #d97757; }
   .p-actions button:hover { background: #d97757; color: #fff; }
