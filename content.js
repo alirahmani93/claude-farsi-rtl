@@ -121,13 +121,28 @@
     for (let i = 0; i < blocks.length; i++) schedule(blocks[i]);
   }
 
+  // Composer (contenteditable) mutations are handled by the `input` listener
+  // below; the observer must not also re-evaluate inside the composer, or its
+  // setAttribute calls collapse the user's selection while they're trying to
+  // copy what they typed.
+  function isInsideEditable(node) {
+    let el = node && node.nodeType === 1 ? node : node && node.parentElement;
+    for (; el; el = el.parentElement) {
+      if (el.isContentEditable) return true;
+    }
+    return false;
+  }
+
   const observer = new MutationObserver((muts) => {
     for (const m of muts) {
       if (m.type === 'childList') {
         for (const node of m.addedNodes) {
-          if (node.nodeType === 1) scanSubtree(node);
+          if (node.nodeType !== 1) continue;
+          if (isInsideEditable(node)) continue;
+          scanSubtree(node);
         }
       } else if (m.type === 'characterData') {
+        if (isInsideEditable(m.target)) continue;
         let p = m.target.parentElement;
         while (p && !BLOCK_SET.has(p.tagName)) p = p.parentElement;
         if (p) schedule(p);
