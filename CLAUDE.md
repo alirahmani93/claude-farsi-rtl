@@ -6,15 +6,33 @@ The font is bundled. After any change, the user reloads via
 
 ## Scope
 
-Runs on three hosts (declared in `manifest.json`):
+Manifest `matches` is `<all_urls>` — `content.js` loads on every page
+but **gates everything on a user-configurable `siteList`** in
+`chrome.storage.local`. On a hostname not in the list (or whose entry
+has `enabled: false`), the module-level `siteEnabled` stays `false` and
+the script is fully inert: no observer, no font CSS vars, the
+`cfr-insert` handler returns `'This site is not in the Farsi RTL site
+list.'`. Don't move this gate inside individual features — the single
+`siteEnabled` flag is what makes the broader `<all_urls>` host
+permission safe.
 
-- `https://claude.ai/*`
-- `https://chatgpt.com/*`
-- `https://chat.openai.com/*` (legacy domain — redirects to chatgpt.com, kept for safety)
+Default `siteList` is seeded by `background.js` on
+`runtime.onInstalled` (and `onStartup` as a safety net) with the three
+historical hosts: `claude.ai`, `chatgpt.com`, `chat.openai.com`. A
+`_siteListSeeded` marker in `chrome.storage.local` prevents reseeding
+after a user empties the list on purpose.
 
-The extension is still named **"Claude.ai Farsi RTL"** even though it covers
-ChatGPT too. Do not rename the extension or files unless the user asks —
-they explicitly deferred rebranding.
+Host matching is **exact lowercased hostname** — no wildcards, no
+suffix matching. Users add subdomains as their own entries. Predictable
+behaviour beats clever pattern matching when the consequence is "did
+the host site's typography just get overridden?" If users start asking
+for wildcards, extend `hostMatches()` in `content.js` and the matching
+logic in `popup.js`'s `getEnabledSiteHosts()` together — both must
+agree.
+
+The extension is still named **"Claude.ai Farsi RTL"** even though it
+now works on any site the user adds. Do not rename the extension or
+files unless the user asks — they explicitly deferred rebranding.
 
 ## Features (all in one content script)
 
@@ -118,16 +136,39 @@ they explicitly deferred rebranding.
    - The Settings tab also holds the `promptPreviewChars` number input.
      Don't move it into the Prompts tab — keep all knobs in Settings.
 
+5. **Site list (Settings tab)** — `siteList` in `chrome.storage.local`
+   is `Array<{host: string, enabled: boolean}>`. The Settings tab
+   exposes: a free-form input + Add, an "Add current site" button
+   (sends `{type:'cfr-add-current-site'}` to the service worker), and a
+   per-row enable switch + remove button.
+   - Keyboard shortcut `Alt+Shift+S` (configurable at
+     `chrome://extensions/shortcuts`) fires the `add-current-site`
+     command in `background.js`, which adds the active tab's hostname.
+     If the host is already in the list, it flips it to enabled rather
+     than duplicating. Internal pages (chrome://, about:, etc.) where
+     `new URL(tab.url).hostname` is empty are skipped.
+   - `popup.js`'s `findChatTab()` builds `chrome.tabs.query` URL
+     patterns from the current `siteList` at call time (both `http://`
+     and `https://`) — never hardcode the 3 historical hosts again.
+   - `normaliseHost()` in both `background.js` and `popup.js` strips a
+     leading scheme and trailing path so users can paste a full URL
+     into the Add input. Keep the two implementations in sync.
+
 ## Conventions
 
 - **Site-agnostic content script.** Don't add per-site DOM selectors —
   the script keys off generic tags (`<p>`, `contenteditable`, `role="textbox"`)
-  so it works on both Claude and ChatGPT (and survives their DOM changes).
-- **Three URL lists must stay in sync** in `manifest.json`:
-  `host_permissions`, `content_scripts[0].matches`,
-  `web_accessible_resources[0].matches`. And `SUPPORTED_URLS` in `popup.js`.
-- **No new permissions** beyond `storage` + the three host matches. The
-  extension's pitch is "no network calls" — keep it that way.
+  so it works on both Claude and ChatGPT (and any user-added site).
+- **Manifest URL lists**: `host_permissions`, `content_scripts[0].matches`,
+  and `web_accessible_resources[0].matches` are all `<all_urls>`. The
+  per-site gating happens at runtime via `siteList` — don't tighten the
+  manifest matches back to specific hosts, that would defeat the
+  user-configurable site list.
+- **No new permissions** beyond `storage` + `<all_urls>` host
+  permission. The extension's pitch is still "no network calls" — keep
+  it that way (no `fetch`, no CDN, no telemetry). The broader host
+  permission is what makes the site list work; it is NOT permission to
+  start phoning home.
 - **Storage keys in use:**
   - `chrome.storage.sync`: `prompts` *only when `syncPromptsEnabled` is true*
     (so the list follows the user across devices). When the toggle is
@@ -138,11 +179,21 @@ they explicitly deferred rebranding.
   - `chrome.storage.local`: `farsiFont`, `englishFont`, `enabled`,
     `rtlEnabled`, `fontsEnabled`, `promptsEnabled`, `syncPromptsEnabled`,
     `promptPreviewChars`, `_promptsMigrated` (the one-time sync-migration
-    marker), and a copy of `prompts` whenever sync is off (or as a
-    snapshot from a previous off-period). Fonts and toggles stay local
-    by design — fonts are device-dependent (different OS → different
-    installed fonts) and toggles are typically per-browser preferences.
-- **Composer message protocol:** `{type: 'cfr-insert', body: string, position: 'top' | 'cursor' | 'end'}`.
+    marker), `siteList` (the user-configurable host allowlist),
+    `_siteListSeeded` (the one-time site-list seeding marker — set after
+    `background.js` writes the historical 3 defaults; do not remove this
+    check or the list will be repopulated after a user clears it), and a
+    copy of `prompts` whenever sync is off (or as a snapshot from a
+    previous off-period). Fonts and toggles stay local by design — fonts
+    are device-dependent (different OS → different installed fonts) and
+    toggles are typically per-browser preferences. The `siteList` is
+    local for the same reason: which sites you use the extension on is
+    usually a per-device choice.
+- **Composer message protocol:** `{type: 'cfr-insert', body: string, position: 'top' | 'cursor' | 'end'}` (content script).
+- **Site-add message protocol:** `{type: 'cfr-add-current-site'}` →
+  service worker → `{ok: true, host, added}` or `{ok: false, error}`.
+  Used by both the popup's "+ Add current site" button and the
+  `add-current-site` keyboard command.
 
 ## Testing
 
@@ -159,12 +210,23 @@ No automated tests. Manual flow:
    per-feature switch independently and confirm only that feature stops.
 8. Open popup → Settings → change "Prompt preview length" → switch to
    Prompts → verify card truncation respects the new value.
+9. Open popup → Settings → Site list → type a hostname (e.g.
+   `example.com`) → Add → open `https://example.com` → paste Farsi
+   text → verify RTL kicks in. Disable that entry → reload the tab →
+   verify the script is inert.
+10. Open popup → Settings → "+ Add current site" while on a random tab
+    → verify the hostname appears in the list.
+11. With a non-listed tab focused, press `Alt+Shift+S` → verify the
+    hostname is added (and if a popup is open, the list re-renders).
 
 ## Files
 
-- `manifest.json` — MV3 manifest, three host patterns.
-- `content.js` — RTL detector, font CSS-var wiring, prompt insertion handler.
+- `manifest.json` — MV3 manifest, `<all_urls>` matches, commands, background.
+- `background.js` — service worker: seeds `siteList`, handles the
+  `add-current-site` command and the `cfr-add-current-site` message.
+- `content.js` — RTL detector, font CSS-var wiring, prompt insertion
+  handler; gated by `siteEnabled` against `siteList`.
 - `styles.css` — `@font-face` for bundled Vazirmatn + RTL rules keyed off `[data-farsi-rtl="1"]`.
-- `popup.html` / `popup.css` / `popup.js` — tabbed popup (Prompts + Fonts + Settings).
+- `popup.html` / `popup.css` / `popup.js` — tabbed popup (Prompts + Fonts + Settings, including the Site list).
 - `fonts/Vazirmatn-{Regular,Bold}.woff2` — bundled webfont (OFL).
 - `icons/` — extension icons.
