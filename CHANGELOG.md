@@ -7,6 +7,37 @@ the extension follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Added
+- **User-configurable site list.** The extension is no longer hardcoded
+  to `claude.ai` / `chatgpt.com` / `chat.openai.com`. The manifest now
+  matches `<all_urls>`, but `content.js` gates every feature on a
+  module-level `siteEnabled` flag derived from a new `siteList` key in
+  `chrome.storage.local`. On any hostname not in the user's list (or
+  whose entry is disabled), the script is fully inert — no observer, no
+  font CSS vars, no prompt insertion.
+- **Settings → Site list** UI: add a hostname (free-form input or
+  one-click "+ Add current site"), per-row enable switch, and remove
+  button. The current configured shortcut is surfaced as a hint.
+- **`background.js`** service worker that seeds `siteList` on
+  `runtime.onInstalled` with the historical 3 defaults (a
+  `_siteListSeeded` marker prevents reseeding after the user clears the
+  list), and handles the `add-current-site` keyboard command + the
+  `cfr-add-current-site` runtime message.
+- **Keyboard shortcut** `Alt+Shift+S` (configurable at
+  `chrome://extensions/shortcuts`) adds the active tab's hostname to
+  the site list — or re-enables it if it's already there.
+
+### Changed
+- **Manifest matches widened to `<all_urls>`** across `host_permissions`,
+  `content_scripts[0].matches`, and `web_accessible_resources[0].matches`.
+  The per-site gating that used to live in the manifest now lives at
+  runtime in `siteList`. No `tabs` permission added — `<all_urls>`
+  already grants tab-URL access.
+- `popup.js`'s `findChatTab()` now builds `chrome.tabs.query` URL
+  patterns from the live `siteList` instead of the old hardcoded
+  `SUPPORTED_URLS` array.
+- `content.js` insert error when the site isn't listed:
+  `'This site is not in the Farsi RTL site list.'`
+
 - **`LICENSE`** — MIT license for the extension code, with a NOTICE
   clarifying that the bundled Vazirmatn webfont is OFL-1.1 and not
   covered by the MIT grant.

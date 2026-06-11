@@ -198,6 +198,137 @@
     });
   }
 
+  // ── Site list ─────────────────────────────────────────────────────────
+  //
+  // Stored under `siteList` in chrome.storage.local as Array<{host, enabled}>.
+  // The content script keys off this — manifest matches are <all_urls> so
+  // every page loads content.js, and the script bails immediately if its
+  // hostname isn't in the enabled list. Seeding with the historical 3
+  // defaults happens in background.js on install.
+
+  function normaliseHost(input) {
+    if (!input) return '';
+    let s = String(input).trim().toLowerCase();
+    try {
+      if (/^[a-z][a-z0-9+.-]*:\/\//.test(s)) s = new URL(s).hostname;
+    } catch (_) { /* fall through */ }
+    s = s.replace(/^\/+/, '').replace(/\/.*$/, '');
+    return s;
+  }
+
+  async function getSiteList() {
+    const { siteList } = await chrome.storage.local.get(['siteList']);
+    return Array.isArray(siteList) ? siteList : [];
+  }
+  async function setSiteList(list) {
+    return chrome.storage.local.set({ siteList: list });
+  }
+
+  function buildSiteRow(entry) {
+    const li = document.createElement('li');
+    if (entry.enabled === false) li.classList.add('disabled');
+
+    const host = document.createElement('span');
+    host.className = 'site-host';
+    host.textContent = entry.host;
+
+    const sw = document.createElement('input');
+    sw.type = 'checkbox';
+    sw.className = 'switch';
+    sw.checked = entry.enabled !== false;
+    sw.title = sw.checked ? 'Disable on this site' : 'Enable on this site';
+    sw.addEventListener('change', async () => {
+      const list = await getSiteList();
+      const next = list.map(e =>
+        e.host === entry.host ? { ...e, enabled: sw.checked } : e);
+      await setSiteList(next);
+    });
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'site-del';
+    del.title = 'Remove site';
+    del.textContent = '×';
+    del.addEventListener('click', async () => {
+      const list = await getSiteList();
+      await setSiteList(list.filter(e => e.host !== entry.host));
+    });
+
+    li.appendChild(host);
+    li.appendChild(sw);
+    li.appendChild(del);
+    return li;
+  }
+
+  async function renderSiteList() {
+    const list = await getSiteList();
+    const ul = $('site-list');
+    const empty = $('site-empty');
+    ul.innerHTML = '';
+    if (!list.length) { empty.hidden = false; return; }
+    empty.hidden = true;
+    for (const entry of list) {
+      if (!entry || typeof entry.host !== 'string' || !entry.host) continue;
+      ul.appendChild(buildSiteRow(entry));
+    }
+  }
+
+  async function addSite(rawHost) {
+    const host = normaliseHost(rawHost);
+    if (!host || !host.includes('.')) {
+      flashStatus('Enter a hostname like example.com.', true);
+      return false;
+    }
+    const list = await getSiteList();
+    const idx = list.findIndex(e => e.host === host);
+    if (idx === -1) {
+      list.unshift({ host, enabled: true });
+    } else {
+      // Already present — flip enabled on and move to the top.
+      const [existing] = list.splice(idx, 1);
+      list.unshift({ ...existing, enabled: true });
+    }
+    await setSiteList(list);
+    flashStatus(idx === -1 ? 'Added ' + host + '.' : 'Enabled ' + host + '.');
+    return true;
+  }
+
+  function bindSiteList() {
+    $('site-add').addEventListener('click', async () => {
+      const ok = await addSite($('site-input').value);
+      if (ok) $('site-input').value = '';
+    });
+    $('site-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('site-add').click();
+    });
+    $('site-add-current').addEventListener('click', async () => {
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'cfr-add-current-site' });
+        if (res && res.ok) {
+          flashStatus(res.added
+            ? 'Added ' + res.host + '.'
+            : 'Enabled ' + res.host + '.');
+        } else {
+          flashStatus((res && res.error) || 'Could not add current tab.', true);
+        }
+      } catch (_) {
+        flashStatus('Could not add current tab.', true);
+      }
+    });
+
+    // Surface the user's configured shortcut so they can see it (and the
+    // standard "configure shortcuts" page sits at chrome://extensions/shortcuts,
+    // but Chrome blocks extensions from linking there — show the key combo only).
+    if (chrome.commands && chrome.commands.getAll) {
+      chrome.commands.getAll((cmds) => {
+        const c = (cmds || []).find(x => x.name === 'add-current-site');
+        const hint = $('site-shortcut-hint');
+        if (c && c.shortcut) hint.textContent = 'Shortcut: ' + c.shortcut;
+        else hint.textContent = 'Tip: assign a shortcut at chrome://extensions/shortcuts';
+      });
+    }
+  }
+
   // ── Prompts ───────────────────────────────────────────────────────────
 
   function cryptoId() {
@@ -260,16 +391,26 @@
     await toArea.set({ prompts: Array.isArray(prompts) ? prompts : [] });
   }
 
-  const SUPPORTED_URLS = [
-    'https://claude.ai/*',
-    'https://chatgpt.com/*',
-    'https://chat.openai.com/*',
-  ];
+  // The set of "supported" hostnames is now user-configurable via the
+  // siteList in chrome.storage.local. We build `chrome.tabs.query` URL
+  // patterns on the fly from the currently-enabled entries.
+  async function getEnabledSiteHosts() {
+    const { siteList } = await chrome.storage.local.get(['siteList']);
+    if (!Array.isArray(siteList)) return [];
+    return siteList
+      .filter(e => e && e.enabled !== false && typeof e.host === 'string' && e.host)
+      .map(e => e.host.toLowerCase());
+  }
 
   async function findChatTab() {
-    const tabs = await chrome.tabs.query({ url: SUPPORTED_URLS });
+    const hosts = await getEnabledSiteHosts();
+    if (!hosts.length) return null;
+    // Match both http and https so dev environments (localhost) work too.
+    const patterns = hosts.flatMap(h => [`https://${h}/*`, `http://${h}/*`]);
+    let tabs;
+    try { tabs = await chrome.tabs.query({ url: patterns }); }
+    catch (_) { return null; }
     if (!tabs.length) return null;
-    // Prefer the active one in the current window, otherwise any supported tab.
     const current = tabs.find(t => t.active) || tabs[0];
     return current;
   }
@@ -277,7 +418,7 @@
   async function insertPrompt(body, position) {
     const tab = await findChatTab();
     if (!tab) {
-      flashStatus('Open a claude.ai or chatgpt.com tab first.', true);
+      flashStatus('Open a tab from your site list first.', true);
       return;
     }
     try {
@@ -663,6 +804,8 @@
     await loadToggles();
     bindToggles();
     bindPromptUI();
+    bindSiteList();
+    renderSiteList();
 
     // Migrate before the first render so we show the synced list, not the
     // about-to-be-deleted local copy.
@@ -692,6 +835,10 @@
       // trigger spurious re-renders.
       const promptArea = syncPromptsEnabled ? 'sync' : 'local';
       if (area === promptArea && changes.prompts) renderPrompts();
+
+      // Site list changes (e.g. the keyboard shortcut adding the current
+      // tab while the popup is open).
+      if (area === 'local' && changes.siteList) renderSiteList();
     });
   });
 })();

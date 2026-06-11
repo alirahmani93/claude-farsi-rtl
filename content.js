@@ -156,12 +156,34 @@
   // master; when it's false the per-feature flags are ignored and the
   // extension is fully inert (no observer, no font vars, ignores insert
   // messages from the popup).
+  //
+  // `siteEnabled` mirrors whether the current hostname is in the user's
+  // `siteList` (and that entry is enabled). The content script runs on
+  // every page because manifest matches are `<all_urls>` — `siteEnabled`
+  // is the per-host gate that decides whether anything actually happens.
   const settings = {
     enabled: true, rtlEnabled: true, fontsEnabled: true, promptsEnabled: true,
   };
-  const rtlOn  = () => settings.enabled && settings.rtlEnabled;
-  const fontOn = () => settings.enabled && settings.fontsEnabled;
-  const promptsOn = () => settings.enabled && settings.promptsEnabled;
+  let siteEnabled = false;
+  const rtlOn  = () => siteEnabled && settings.enabled && settings.rtlEnabled;
+  const fontOn = () => siteEnabled && settings.enabled && settings.fontsEnabled;
+  const promptsOn = () => siteEnabled && settings.enabled && settings.promptsEnabled;
+
+  // Exact hostname match (case-insensitive). We deliberately do NOT do
+  // suffix / wildcard matching — keeping it predictable means a user who
+  // adds `claude.ai` won't be surprised that some random `*.claude.ai`
+  // marketing page suddenly gets restyled. Subdomains are added as their
+  // own entries.
+  const CURRENT_HOST = (location.hostname || '').toLowerCase();
+  function hostMatches(list) {
+    if (!Array.isArray(list)) return false;
+    for (const e of list) {
+      if (!e || e.enabled === false) continue;
+      if (typeof e.host !== 'string') continue;
+      if (e.host.toLowerCase() === CURRENT_HOST) return true;
+    }
+    return false;
+  }
 
   let rtlRunning = false;
   function startRtl() {
@@ -248,10 +270,11 @@
     // promptsOn() is read on each insert message — nothing to apply here.
   }
 
-  chrome.storage.local.get(TOGGLE_KEYS).then((s) => {
+  chrome.storage.local.get([...TOGGLE_KEYS, 'siteList']).then((s) => {
     for (const k of TOGGLE_KEYS) {
       if (typeof s[k] === 'boolean') settings[k] = s[k];
     }
+    siteEnabled = hostMatches(s.siteList);
     applyToggles();
   });
 
@@ -260,6 +283,10 @@
     let touched = false;
     for (const k of TOGGLE_KEYS) {
       if (changes[k]) { settings[k] = !!changes[k].newValue; touched = true; }
+    }
+    if (changes.siteList) {
+      const next = hostMatches(changes.siteList.newValue);
+      if (next !== siteEnabled) { siteEnabled = next; touched = true; }
     }
     if (touched) applyToggles();
   });
@@ -365,6 +392,10 @@
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || msg.type !== 'cfr-insert') return;
+    if (!siteEnabled) {
+      sendResponse({ ok: false, error: 'This site is not in the Farsi RTL site list.' });
+      return;
+    }
     if (!promptsOn()) {
       sendResponse({ ok: false, error: 'Prompt insertion is disabled in Settings.' });
       return; // synchronous response

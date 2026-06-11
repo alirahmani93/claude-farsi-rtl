@@ -18,7 +18,7 @@
   <!-- ── Prompts panel ────────────────────────────────────────────────── -->
   <section id="panel-prompts" class="panel active" role="tabpanel">
     <div class="panel-head">
-      <span class="hint">Open a claude.ai or chatgpt.com tab to insert.</span>
+      <span class="hint">Open a tab from your site list to insert.</span>
       <div class="panel-head-actions">
         <button type="button" id="p-export" class="ghost small" title="Download all prompts as a JSON file">Export</button>
         <button type="button" id="p-import" class="ghost small" title="Paste exported JSON to merge prompts">Import</button>
@@ -74,6 +74,24 @@
 
   <!-- ── Settings panel ───────────────────────────────────────────────── -->
   <section id="panel-settings" class="panel" role="tabpanel" hidden>
+
+    <div class="setting-card">
+      <div class="setting-head">
+        <span class="setting-title">Site list</span>
+        <span class="setting-hint">The extension only activates on hostnames in this list. Add the current tab with the button or shortcut.</span>
+      </div>
+      <div class="site-add-row">
+        <input type="text" id="site-input" placeholder="e.g. claude.ai">
+        <button type="button" id="site-add" class="primary small">Add</button>
+      </div>
+      <div class="site-current-row">
+        <button type="button" id="site-add-current" class="ghost small">+ Add current site</button>
+        <span class="setting-hint" id="site-shortcut-hint"></span>
+      </div>
+      <ul id="site-list" class="site-list"></ul>
+      <p id="site-empty" class="prompts-empty" hidden>No sites yet — add one above.</p>
+    </div>
+
     <label class="toggle-row master" for="t-enabled">
       <span class="toggle-text">
         <span class="toggle-title">Extension enabled</span>
