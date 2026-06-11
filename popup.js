@@ -91,7 +91,7 @@
   // ── Fonts ─────────────────────────────────────────────────────────────
 
   function fill(select, options, current) {
-    select.innerHTML = '';
+    while (select.firstChild) select.removeChild(select.firstChild);
     for (const opt of options) {
       const o = document.createElement('option');
       o.value = opt.value;
@@ -512,7 +512,13 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.title = a.title;
-      b.innerHTML = '<span class="icn">' + a.icon + '</span><span>' + a.label + '</span>';
+      const icn = document.createElement('span');
+      icn.className = 'icn';
+      icn.textContent = a.icon;
+      const lbl = document.createElement('span');
+      lbl.textContent = a.label;
+      b.appendChild(icn);
+      b.appendChild(lbl);
       b.addEventListener('click', () => insertPrompt(p.body, a.position));
       actions.appendChild(b);
     }
@@ -617,12 +623,116 @@
     $('add-form').hidden = true;
   }
 
+  // ── Export / Import ────────────────────────────────────────────────────
+  // Manual JSON backup + restore. Works as the cross-browser bridge too
+  // (Chrome ↔ Firefox don't share storage.sync). No network, no backend.
+  const EXPORT_FORMAT = 'claude-farsi-rtl/prompts';
+  const EXPORT_VERSION = 1;
+
+  async function exportPrompts() {
+    const prompts = await getPrompts();
+    if (!prompts.length) {
+      flashStatus('Nothing to export.', true);
+      return;
+    }
+    const payload = {
+      format: EXPORT_FORMAT,
+      version: EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      prompts,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `claude-farsi-rtl-prompts-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flashStatus(`Exported ${prompts.length} prompt${prompts.length === 1 ? '' : 's'}.`);
+  }
+
+  // Forgiving parser: accepts either the wrapped envelope or a bare array.
+  // Validates each entry shape so a malformed file can't poison storage.
+  function parseImport(text) {
+    const data = JSON.parse(text);
+    const list = Array.isArray(data) ? data
+      : (data && Array.isArray(data.prompts)) ? data.prompts
+      : null;
+    if (!list) throw new Error('File does not contain a prompts list.');
+    const out = [];
+    for (const p of list) {
+      if (!p || typeof p !== 'object') continue;
+      const title = typeof p.title === 'string' ? p.title.trim() : '';
+      const body = typeof p.body === 'string' ? p.body.trim() : '';
+      if (!title || !body) continue;
+      out.push({ id: typeof p.id === 'string' && p.id ? p.id : cryptoId(), title, body });
+    }
+    return out;
+  }
+
+  // Import accepts pasted text rather than a file. A native file picker
+  // would steal focus from the popup and Chrome MV3 dismisses popups on
+  // focus loss — by the time the user picks a file the popup is gone.
+  async function importPromptsFromText(text) {
+    let incoming;
+    try {
+      incoming = parseImport(text);
+    } catch (e) {
+      flashStatus('Invalid JSON.', true);
+      return false;
+    }
+    if (!incoming.length) {
+      flashStatus('No valid prompts found in the pasted JSON.', true);
+      return false;
+    }
+    const existing = await getPrompts();
+    const seen = new Set(existing.map(p => p.title.trim().toLowerCase()));
+    const merged = existing.slice();
+    let added = 0, skipped = 0;
+    // New entries go to the top (matches the add-prompt order); within the
+    // incoming list we preserve file order.
+    const toAdd = [];
+    for (const p of incoming) {
+      const key = p.title.toLowerCase();
+      if (seen.has(key)) { skipped++; continue; }
+      seen.add(key);
+      toAdd.push(p);
+      added++;
+    }
+    if (!added) {
+      flashStatus(`All ${skipped} prompt${skipped === 1 ? '' : 's'} already exist.`);
+      return true; // Treat as a successful no-op so the form closes.
+    }
+    const next = toAdd.concat(merged);
+    try {
+      await setPrompts(next);
+    } catch (e) {
+      // chrome.storage.sync has hard caps (~8KB per item, ~100KB total).
+      // Surface the failure rather than swallowing it — the user needs to
+      // know their list wasn't saved.
+      flashStatus('Storage limit hit — turn off "Sync prompts" in Settings and retry.', true);
+      return false;
+    }
+    const skipMsg = skipped ? `, skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}` : '';
+    flashStatus(`Imported ${added} prompt${added === 1 ? '' : 's'}${skipMsg}.`);
+    return true;
+  }
+
+  function resetImportForm() {
+    $('p-import-text').value = '';
+    $('import-form').hidden = true;
+  }
+
   function bindPromptUI() {
     // Form is closed by default and stays closed every popup open — the user
     // is here for the list 95% of the time.
     $('add-toggle').addEventListener('click', () => {
       const form = $('add-form');
       if (form.hidden) {
+        resetImportForm();
         form.hidden = false;
         $('p-title').focus();
       } else {
@@ -654,6 +764,33 @@
       await setPrompts(prompts);
       resetAddForm();
       flashStatus('Prompt saved.');
+    });
+
+    $('p-export').addEventListener('click', exportPrompts);
+
+    // Import is paste-based — see importPromptsFromText() for why.
+    // Toggling the import button opens/closes the form (matches +Add).
+    // Opening it also collapses the +Add form so the panel stays calm.
+    $('p-import').addEventListener('click', () => {
+      const form = $('import-form');
+      if (form.hidden) {
+        resetAddForm();
+        form.hidden = false;
+        $('p-import-text').focus();
+      } else {
+        resetImportForm();
+      }
+    });
+    $('p-import-cancel').addEventListener('click', resetImportForm);
+    $('p-import-save').addEventListener('click', async () => {
+      const text = $('p-import-text').value.trim();
+      if (!text) {
+        flashStatus('Paste the exported JSON first.', true);
+        $('p-import-text').focus();
+        return;
+      }
+      const ok = await importPromptsFromText(text);
+      if (ok) resetImportForm();
     });
   }
 

@@ -106,6 +106,34 @@ files unless the user asks — they explicitly deferred rebranding.
      the right message.
    - The popup auto-closes ~250ms after a successful insert so focus
      returns to the composer.
+   - **Export / Import** (Prompts panel header, next to `+ Add`):
+     - Export downloads the current prompt list as
+       `claude-farsi-rtl-prompts-YYYY-MM-DD.json`. Envelope shape:
+       `{format: 'claude-farsi-rtl/prompts', version: 1, exportedAt, prompts}`.
+     - Import is **paste-based**, not file-based. A native
+       `<input type="file">` picker steals focus from the popup and
+       Chrome MV3 dismisses popups on focus loss, so by the time the
+       user picks a file the popup is gone. The Import button toggles
+       an inline `#import-form` (mirrors `#add-form` shape) with a
+       single textarea — user pastes the JSON they got from Export,
+       hits Import, the form closes on success. Do NOT replace this
+       with a file picker.
+     - Import accepts the envelope or a bare `[{id?, title, body}]`
+       array (forgiving — `id` is regenerated if missing). Title
+       uniqueness is enforced case-insensitively against the current
+       list; duplicates are skipped and counted in the status line.
+     - Both operate on the *active* storage area (whichever
+       `syncPromptsEnabled` currently points at). They are the
+       cross-browser sync bridge — `chrome.storage.sync` and Firefox's
+       `browser.storage.sync` ride on different accounts and don't
+       talk to each other; Export/Import is how a user moves prompts
+       between Chrome and Firefox (or to a Tampermonkey install, when
+       that ships).
+     - Storage-quota failures are surfaced ("Storage limit hit — turn
+       off 'Sync prompts' in Settings and retry") rather than
+       swallowed. `chrome.storage.sync` caps at ~8KB per item and
+       ~100KB total; a too-large import will fail and the user needs
+       to know.
 
 4. **Feature toggles (Settings tab)** — master `enabled` plus per-feature
    `rtlEnabled`, `fontsEnabled`, `promptsEnabled`, plus a storage-area

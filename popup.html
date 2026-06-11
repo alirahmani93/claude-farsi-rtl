@@ -19,7 +19,19 @@
   <section id="panel-prompts" class="panel active" role="tabpanel">
     <div class="panel-head">
       <span class="hint">Open a tab from your site list to insert.</span>
-      <button type="button" id="add-toggle" class="primary small">+ Add</button>
+      <div class="panel-head-actions">
+        <button type="button" id="p-export" class="ghost small" title="Download all prompts as a JSON file">Export</button>
+        <button type="button" id="p-import" class="ghost small" title="Paste exported JSON to merge prompts">Import</button>
+        <button type="button" id="add-toggle" class="primary small">+ Add</button>
+      </div>
+    </div>
+
+    <div id="import-form" hidden>
+      <textarea id="p-import-text" placeholder="Paste the JSON contents of a previously exported prompts file here…"></textarea>
+      <div class="form-row">
+        <button type="button" id="p-import-cancel" class="ghost">Cancel</button>
+        <button type="button" id="p-import-save" class="primary">Import</button>
+      </div>
     </div>
 
     <div id="add-form" hidden>
